@@ -1,7 +1,117 @@
 <!doctype html>
 <html lang="fr">
-<head><meta charset="utf-8"><title>Groove Line</title></head>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Connexion Groove Line</title>
+<!--
+  PAGE DE REDIRECTION OAUTH DE GROOVE LINE — contenu de référence.
+
+  Ce fichier n'est pas servi par ce dépôt : il est à copier dans le dépôt
+  public qui porte GitHub Pages (celui de l'URL de redirection enregistrée
+  côté Spotify, voir docs/risques.md). Il est versionné ici pour qu'il ne se
+  perde pas et que sa logique soit relue avec le reste de l'architecture.
+
+  POURQUOI CETTE PAGE RENVOIE VERS UN SCHÉMA APPLICATIF.
+  Depuis Android 12 (API 31), un lien https dont le domaine n'est pas vérifié
+  par Digital Asset Links (.well-known/assetlinks.json) n'ouvre JAMAIS
+  l'application : il part dans le navigateur par défaut, sans même proposer de
+  choix. Sans cette page, la connexion Spotify s'arrêterait donc ici et ne
+  reviendrait jamais dans le jeu. La page relaie les paramètres vers
+  fr.groove.grooveline://callback, que l'application capte sur toutes les
+  versions d'Android (docs/architecture.md D10).
+
+  AUCUN SECRET ICI : ni client_id, ni client_secret. Le code d'autorisation qui
+  transite est à usage unique et protégé par PKCE — c'est exactement le cas
+  pour lequel PKCE a été conçu.
+-->
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #17121f;
+    --surface: #221a2e;
+    --ink: #f6f1ff;
+    --muted: #b9afc9;
+    --accent: #ffd166;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main {
+    max-width: 30rem;
+    background: var(--surface);
+    border: 3px solid #352a46;
+    border-radius: 22px;
+    padding: 28px 24px;
+    text-align: center;
+  }
+  h1 { font-size: 1.35rem; margin: 0 0 .6rem; }
+  p { color: var(--muted); margin: .5rem 0; }
+  a.button {
+    display: inline-block;
+    margin-top: 1.2rem;
+    padding: 14px 22px;
+    border-radius: 16px;
+    background: var(--accent);
+    color: #231a0a;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  code { color: var(--ink); }
+</style>
+</head>
 <body>
-<p>Retour à l'application Groove Line…</p>
+<main>
+  <h1 id="titre">Connexion en cours…</h1>
+  <p id="message">Retour vers Groove Line.</p>
+  <a class="button" id="relance" href="#" hidden>Revenir à Groove Line</a>
+</main>
+<script>
+  // Schéma applicatif capté par le manifeste Android de Groove Line.
+  // Doit rester identique à SPOTIFY_CALLBACK_SCHEME côté application.
+  var SCHEME = 'fr.groove.grooveline';
+
+  // Spotify peut répondre dans la requête ou dans le fragment : on lit les deux.
+  var params = new URLSearchParams(window.location.search);
+  var fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  fragment.forEach(function (value, key) {
+    if (!params.has(key)) params.set(key, value);
+  });
+
+  // On ne relaie que les paramètres du protocole : rien d'autre ne doit
+  // franchir cette page.
+  var relayed = new URLSearchParams();
+  ['code', 'state', 'error', 'error_description'].forEach(function (key) {
+    if (params.has(key)) relayed.set(key, params.get(key));
+  });
+
+  var target = SCHEME + '://callback?' + relayed.toString();
+  var bouton = document.getElementById('relance');
+  bouton.setAttribute('href', target);
+
+  if (!params.has('code') && !params.has('error')) {
+    document.getElementById('titre').textContent = 'Rien à transmettre';
+    document.getElementById('message').textContent =
+      'Cette page sert de retour de connexion Spotify. Ouvre-la depuis le jeu.';
+  } else {
+    // Redirection automatique, puis bouton de secours si le navigateur l'a
+    // bloquée (certains navigateurs exigent un geste de l'utilisateur).
+    window.location.replace(target);
+    setTimeout(function () {
+      document.getElementById('titre').textContent = 'Presque fini';
+      document.getElementById('message').textContent =
+        'Si le jeu ne s’est pas rouvert tout seul, appuie sur le bouton.';
+      bouton.hidden = false;
+    }, 1200);
+  }
+</script>
 </body>
 </html>
